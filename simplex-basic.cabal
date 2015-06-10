@@ -15,7 +15,9 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Linear.Simplex.Basic
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar
+                      , linear-grammar >= 0.0.0.4
+                      , mtl
+                      , transformers
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
