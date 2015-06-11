@@ -23,7 +23,7 @@ type Objective = IneqSlack
 -- then returns a substitution.
 -- .
 -- Objective function should be in the form of @Ax + By + Cz + P = 0@
-simplex :: IneqStdForm -> [IneqStdForm] -> Optimize -> [(LinVar, Double)]
+simplex :: IneqStdForm -> [IneqStdForm] -> Optimize -> [(String, Double)]
 simplex (LteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be literal."
 simplex (GteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be literal."
 simplex f cs Max =
@@ -69,7 +69,7 @@ nextRow xs col = fst <$> go 0 Nothing xs
 coeffRatio :: IneqSlack -> Int -> Maybe Double
 coeffRatio x n =
   let xs = getStdVars $ slackIneq x
-      xc = getStdCoeff $ slackIneq x
+      xc = getStdConst $ slackIneq x
   in
   if varCoeff (xs !! n) /= 0
   then
@@ -81,22 +81,22 @@ coeffRatio x n =
 
 -- | flattens targeted row to form the identity at it's column coefficient, then
 -- reduces each non-zero row at this column, via a multiple of this flattened row.
--- Heart of the simplex method.
+-- Heart of the simplex method. Also prepends @objective@ back on @constrs@.
 pivot :: (Int, Int) -> Objective -> [IneqSlack] -> [IneqSlack]
 pivot (row,col) objective constrs =
   let
     focalRow = flatten (constrs !! row) col
-    initConstrs = take row constrs
-    tailConstrs = drop (row+1) constrs
+    initConstrs = map (\x -> compensate focalRow x col) $ take row constrs
+    tailConstrs = map (\x -> compensate focalRow x col) $ drop (row+1) constrs
   in
-  undefined
+  objective:(initConstrs ++ (focalRow:tailConstrs))
 
 -- | "Flattens" a row for further processing.
 flatten :: IneqSlack -> Int -> IneqSlack
 flatten (IneqSlack (EquStd xs xc) ys) n =
   let
     coeffRecip = recip $ varCoeff $ xs !! n
-    mapRecip = map (mapCoeff $ (*) coeffRecip)
+    mapRecip = map $ mapCoeff (coeffRecip *)
   in
   IneqSlack (EquStd (mapRecip xs) $ xc * coeffRecip) $ mapRecip ys
 
@@ -108,7 +108,7 @@ compensate focal target col =
     coeff = varCoeff $ getStdVars (slackIneq target) !! col
     -- multiply all literals by @coeff@
     newFocal = focal { slackIneq = mapStdVars (map $ mapCoeff (coeff *)) $
-                                   mapStdCoeff (coeff *) $ slackIneq focal
+                                   mapStdConst (coeff *) $ slackIneq focal
                      , slackVars = map (mapCoeff (coeff *)) $ slackVars focal
                      }
   in
@@ -125,8 +125,45 @@ diffZip (IneqSlack (EquStd xs xc) xvs) (IneqSlack (EquStd ys yc) yvs) =
 diffZip _ _ = error "`diffZip` called with non `EquStd` input."
 
 -- | Extracts resulting data from tableau, excluding junk data
-getSubst :: [IneqSlack] -> [(LinVar, Double)]
-getSubst = undefined
+getSubst :: [IneqSlack] -> [(String, Double)]
+getSubst xs =
+  let (vars, solutions) = transposeTableau xs
+      solutionIdxs = getSolutionIdxs vars
+  in
+  map (`getSolutionIdx` solutions) solutionIdxs
+  where
+    getSolutionIdx :: (String, Maybe Int) -> [Double] -> (String, Double)
+    getSolutionIdx (n, Nothing) _ = (n, 0)
+    getSolutionIdx (n, Just i) xs = (n, xs !! i)
+
+    getSolutionIdxs :: [(String,[Double])] -> [(String, Maybe Int)]
+    getSolutionIdxs [] = []
+    getSolutionIdxs ((v,ds):xs) = (v,findIdx ds):getSolutionIdxs xs
+      where
+        findIdx :: [Double] -> Maybe Int
+        findIdx ds | maximum ds == 1
+                  && length (filter (== 1) ds) == 1 = elemIndex 1 ds
+                   | otherwise = Nothing
+
+    transposeTableau :: [IneqSlack] -> ([(String, [Double])], [Double])
+    transposeTableau = foldl go ([],[])
+      where
+        go :: ([(String,[Double])], [Double]) -> IneqSlack -> ([(String,[Double])], [Double])
+        go (vars,solutions) (IneqSlack x ys) =
+          let
+            newvars = getStdVars x ++ ys
+            newvarsmap :: [(String,[Double])]
+            newvarsmap = map (\z -> (varName z,[varCoeff z])) newvars
+            newvarsvals :: [[Double]]
+            newvarsvals = if null vars
+                          then snd $ unzip newvarsmap
+                          else zipWith (++) (snd $ unzip vars) (snd $ unzip newvarsmap)
+          in
+          ( if null vars
+            then newvarsmap
+            else zip (fst $ unzip vars) newvarsvals
+          , solutions ++ [getStdConst x]
+          )
 
 
 -- | Standard-form inequality populated with arbitrary slack variables.
@@ -143,7 +180,7 @@ makeSlackVars (LteStd xs xc) = do
   put $ suffix + 1
   return $ IneqSlack (EquStd xs xc) [LinVar ("s" ++ show suffix) 1]
 makeSlackVars (GteStd xs xc) = -- invert equation to <= form
-  makeSlackVars $ LteStd (map (mapCoeff $ (*) (-1)) xs)
+  makeSlackVars $ LteStd (map (mapCoeff ((-1) *)) xs)
                          ((-1) * xc)
 
 -- | Fills missing variables. List of inequalities includes objective function.
