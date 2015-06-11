@@ -32,9 +32,32 @@ simplex f cs Max =
     run :: [IneqSlack] -> [IneqSlack]
     run = undefined
 
-    -- finds next index of from objective function
-    nextColumn :: IneqSlack -> Maybe Integer
-    nextColumn = undefined
+    -- finds next column index from objective function
+    nextColumn :: IneqSlack -> Maybe Int
+    nextColumn (IneqSlack (EquStd xs _) _)
+      | minimum (map varCoeff xs) < 0 = findIndex (hasCoeff $ minimum (map varCoeff xs)) xs
+      | otherwise = Nothing -- simplex is finished
+    nextColumn _ = error "`nextColumn` called on an inequality."
+
+    coeffRatio :: IneqSlack -> Int -> Maybe Double
+    coeffRatio (IneqSlack (EquStd xs xc) _) n
+      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+          if ratio < 0
+          then Nothing -- negative ratio
+          else Just ratio
+      | otherwise = Nothing -- undefined ratio
+    coeffRatio (IneqSlack (LteStd xs xc) _) n
+      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+          if ratio < 0
+          then Nothing -- negative ratio
+          else Just ratio
+      | otherwise = Nothing -- undefined ratio
+    coeffRatio (IneqSlack (GteStd xs xc) _) n
+      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+          if ratio < 0
+          then Nothing -- negative ratio
+          else Just ratio
+      | otherwise = Nothing -- undefined ratio
 
     -- Extracts resulting data from tableau, excluding junk data
     getSubst :: [IneqSlack] -> [(LinVar, Double)]
