@@ -112,11 +112,17 @@ compensate focal target col =
                      , slackVars = map (mapCoeff (coeff *)) $ slackVars focal
                      }
   in
-  undefined
+  diffZip target newFocal
+
+
+-- | Note: Must have identical occurrances of variables, and must be @EquStd@.
+-- subtracts rhs from lhs.
+diffZip :: IneqSlack -> IneqSlack -> IneqSlack
+diffZip (IneqSlack (EquStd xs xc) xvs) (IneqSlack (EquStd ys yc) yvs) =
+  IneqSlack (EquStd (zipDiff xs ys) $ xc - yc) $ zipDiff xvs yvs
   where
-    -- Note: Must have identical occurrances of variables
-    diffZip :: IneqSlack -> IneqSlack -> IneqSlack
-    diffZip = undefined
+    zipDiff = zipWith (\x y -> LinVar (varName x) $ varCoeff x - varCoeff y)
+diffZip _ _ = error "`diffZip` called with non `EquStd` input."
 
 -- | Extracts resulting data from tableau, excluding junk data
 getSubst :: [IneqSlack] -> [(LinVar, Double)]
