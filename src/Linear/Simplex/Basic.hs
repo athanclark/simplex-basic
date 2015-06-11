@@ -105,9 +105,18 @@ flatten (IneqSlack (EquStd xs xc) ys) n =
 compensate :: IneqSlack -> IneqSlack -> Int -> IneqSlack
 compensate focal target col =
   let
-    coeff = varCoeff $ (getStdVars $ slackIneq target) !! col
+    coeff = varCoeff $ getStdVars (slackIneq target) !! col
+    -- multiply all literals by @coeff@
+    newFocal = focal { slackIneq = mapStdVars (map $ mapCoeff (coeff *)) $
+                                   mapStdCoeff (coeff *) $ slackIneq focal
+                     , slackVars = map (mapCoeff (coeff *)) $ slackVars focal
+                     }
   in
   undefined
+  where
+    -- Note: Must have identical occurrances of variables
+    diffZip :: IneqSlack -> IneqSlack -> IneqSlack
+    diffZip = undefined
 
 -- | Extracts resulting data from tableau, excluding junk data
 getSubst :: [IneqSlack] -> [(LinVar, Double)]
