@@ -7,6 +7,7 @@ module Linear.Simplex.Basic where
 
 import Linear.Grammar
 import Data.List
+import Data.Maybe
 import Data.Bifunctor
 
 import Control.Monad
@@ -31,51 +32,66 @@ simplex f cs Max =
   getSubst $ run tableau
   where
     run :: [IneqSlack] -> [IneqSlack]
-    run = undefined
+    run (objective:constrs) =
+      let mCol = nextColumn objective
+          mRow = mCol >>= nextRow constrs
+      in
+      if isNothing mCol || isNothing mRow
+      then objective:constrs -- solved
+      else run $ pivot (fromJust mCol, fromJust mRow) $ objective:constrs
 
-    -- finds next column index from objective function
-    nextColumn :: IneqSlack -> Maybe Int
-    nextColumn (IneqSlack (EquStd xs _) _)
-      | minimum (map varCoeff xs) < 0 = findIndex (hasCoeff $ minimum (map varCoeff xs)) xs
-      | otherwise = Nothing -- simplex is finished
-    nextColumn _ = error "`nextColumn` called on an inequality."
+-- | finds next column index from objective function
+nextColumn :: IneqSlack -> Maybe Int
+nextColumn (IneqSlack (EquStd xs _) _)
+  | minimum (map varCoeff xs) < 0 = findIndex (hasCoeff $ minimum (map varCoeff xs)) xs
+  | otherwise = Nothing -- simplex is finished
+nextColumn _ = error "`nextColumn` called on an inequality."
 
-    coeffRatio :: IneqSlack -> Int -> Maybe Double
-    coeffRatio (IneqSlack (EquStd xs xc) _) n
-      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
-          if ratio < 0
-          then Nothing -- negative ratio
-          else Just ratio
-      | otherwise = Nothing -- undefined ratio
-    coeffRatio (IneqSlack (LteStd xs xc) _) n
-      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
-          if ratio < 0
-          then Nothing -- negative ratio
-          else Just ratio
-      | otherwise = Nothing -- undefined ratio
-    coeffRatio (IneqSlack (GteStd xs xc) _) n
-      | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
-          if ratio < 0
-          then Nothing -- negative ratio
-          else Just ratio
-      | otherwise = Nothing -- undefined ratio
+-- | Finds next pivot row based on ratios of each row - note, row list should be non-empty
+nextRow :: [IneqSlack] -> Int -> Maybe Int
+nextRow xs col = fst <$> go 0 Nothing xs
+  where
+    -- manually recurse down tableau, with accumulator
+    go :: Int -> Maybe (Int, Double) -> [IneqSlack] -> Maybe (Int, Double)
+    go _ _ [] = error "Non-empty tableau supplied to `nextRow`."
+    go idx Nothing [x] = (idx,) <$> coeffRatio x col
+    go idx (Just (aidx, acc)) (x:xs) = case coeffRatio x col of
+      Nothing -> Just (aidx, acc)
+      Just acc' | acc' > acc -> go (idx+1) (Just (idx, acc')) xs
+                | otherwise  -> go (idx+1) (Just (aidx, acc)) xs
 
-    -- Finds next pivot row based on ratios of each row - note, row list should be non-empty
-    nextRow :: [IneqSlack] -> Int -> Maybe Int
-    nextRow xs col = fst <$> go 0 Nothing xs
-      where
-        -- manually recurse down tableau, with accumulator
-        go :: Int -> Maybe (Int, Double) -> [IneqSlack] -> Maybe (Int, Double)
-        go _ _ [] = error "Non-empty tableau supplied to `nextRow`."
-        go idx Nothing [x] = (idx,) <$> coeffRatio x col
-        go idx (Just (aidx, acc)) (x:xs) = case coeffRatio x col of
-          Nothing -> Just (aidx, acc)
-          Just acc' | acc' > acc -> go (idx+1) (Just (idx, acc')) xs
-                    | otherwise  -> go (idx+1) (Just (aidx, acc)) xs
+-- | Computes coefficient ratio to constant, based on a column index
+coeffRatio :: IneqSlack -> Int -> Maybe Double
+coeffRatio (IneqSlack (EquStd xs xc) _) n
+  | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+      if ratio < 0
+      then Nothing -- negative ratio
+      else Just ratio
+  | otherwise = Nothing -- undefined ratio
+coeffRatio (IneqSlack (LteStd xs xc) _) n
+  | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+      if ratio < 0
+      then Nothing -- negative ratio
+      else Just ratio
+  | otherwise = Nothing -- undefined ratio
+coeffRatio (IneqSlack (GteStd xs xc) _) n
+  | varCoeff (xs !! n) /= 0 = let ratio = varCoeff (xs !! n) / xc in
+      if ratio < 0
+      then Nothing -- negative ratio
+      else Just ratio
+  | otherwise = Nothing -- undefined ratio
 
-    -- Extracts resulting data from tableau, excluding junk data
-    getSubst :: [IneqSlack] -> [(LinVar, Double)]
-    getSubst = undefined
+-- | flattens targeted row to form the identity at it's column coefficient, then
+-- reduces each non-zero row at this column, via a multiple of this flattened row.
+-- Heart of the simplex method.
+pivot :: (Int, Int) -> [IneqSlack] -> [IneqSlack]
+pivot = undefined
+
+
+-- | Extracts resulting data from tableau, excluding junk data
+getSubst :: [IneqSlack] -> [(LinVar, Double)]
+getSubst = undefined
+
 
 -- | Standard-form inequality populated with arbitrary slack variables.
 data IneqSlack = IneqSlack IneqStdForm [LinVar]
