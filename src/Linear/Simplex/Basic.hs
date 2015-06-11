@@ -8,6 +8,7 @@ module Linear.Simplex.Basic where
 import Linear.Grammar
 import Data.List
 import Data.Maybe
+import Data.Monoid
 import Data.Bifunctor
 import Control.Monad
 import Control.Monad.State
@@ -52,18 +53,26 @@ nextColumn (IneqSlack (EquStd xs _) _)
 nextColumn _ = error "`nextColumn` called on an inequality."
 
 
--- | Finds next pivot row based on ratios of each row - note, row list should be non-empty
+-- | Finds next pivot row by the smallest ratio in each row.
+-- Note: row list should be non-empty
 nextRow :: [IneqSlack] -> Int -> Maybe Int
-nextRow xs col = fst <$> go 0 Nothing xs
+nextRow xs col = if null xs
+  then error "Non-empty tableau supplied to `nextRow`."
+  else minIdxMaybe $ map (`coeffRatio` col) xs
   where
-    -- manually recurse down tableau, with accumulator
-    go :: Int -> Maybe (Int, Double) -> [IneqSlack] -> Maybe (Int, Double)
-    go _ _         []  = error "Non-empty tableau supplied to `nextRow`."
-    go idx Nothing [x] = (idx,) <$> coeffRatio x col
-    go idx (Just (aidx, acc)) (x:xs) = case coeffRatio x col of
-      Nothing -> Just (aidx, acc)
-      Just acc' | acc' > acc -> go (idx+1) (Just (idx, acc')) xs
-                | otherwise  -> go (idx+1) (Just (aidx, acc)) xs
+    minIdxMaybe :: Ord a => [Maybe a] -> Maybe Int
+    minIdxMaybe xs =
+      fst <$> foldl go Nothing (catMaybes $ mapIdxs xs)
+      where
+        go Nothing  x = Just x
+        go (Just n) x | snd x < snd n = Just x
+                      | otherwise     = Just n
+
+    mapIdxs :: Functor f => [f a] -> [f (Int, a)]
+    mapIdxs = go 0
+      where
+        go n [] = []
+        go n (fx:xs) = ((n,) <$> fx):go (n+1) xs
 
 
 -- | Computes coefficient ratio to constant, based on a column index

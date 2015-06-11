@@ -51,17 +51,12 @@ prop_flatten_One x n =
 
 prop_nextRow_MinRatio :: [IneqSlack] -> Int -> Property
 prop_nextRow_MinRatio xs n =
-  not (null xs) && n >= 0 && n < length (getStdVars $ slackIneq $ head xs) ==>
-    let mr = nextRow xs n in
-    case mr of
+  let xs' = populate xs in
+  not (null xs) && n >= 0 && n < length (getStdVars $ slackIneq $ head xs') ==>
+    case nextRow xs' n of
       Nothing -> True
       Just r  ->
-        let ratios = unMaybes $ map (`coeffRatio` n) xs
-            ratio = fromJust $ coeffRatio (xs !! r) n
+        let ratios = mapMaybe (`coeffRatio` n) xs'
+            ratio  = fromJust $ coeffRatio (xs' !! r) n
         in
         minimum ratios == ratio
-  where
-    unMaybes :: [Maybe a] -> [a]
-    unMaybes [] = []
-    unMaybes (Nothing:xs) = unMaybes xs
-    unMaybes (Just x :xs) = x:unMaybes xs
