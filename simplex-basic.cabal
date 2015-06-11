@@ -4,7 +4,7 @@ Author:                 Athan Clark <athan.clark@gmail.com>
 Maintainer:             Athan Clark <athan.clark@gmail.com>
 License:                BSD3
 License-File:           LICENSE
-Synopsis:               Trivial simplex implementation.
+Synopsis:               Textbook primal simplex implementation.
 -- Description:
 Cabal-Version:          >= 1.10
 Build-Type:             Simple
@@ -15,7 +15,7 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Linear.Simplex.Basic
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar >= 0.0.0.5
+                      , linear-grammar >= 0.0.0.6
                       , mtl
                       , transformers
                       , bifunctors
