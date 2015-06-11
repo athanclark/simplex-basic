@@ -41,4 +41,5 @@ prop_diffZip_Zero x =
 prop_flatten_One :: IneqSlack -> Int -> Property
 prop_flatten_One x n =
   n >= 0 && n < length (getStdVars $ slackIneq x) ==>
-    varCoeff (getStdVars (slackIneq $ flatten x n) !! n) == 1
+    let r = varCoeff (getStdVars (slackIneq $ flatten x n) !! n) in
+    r > 0.9999 && r < 1.0001
