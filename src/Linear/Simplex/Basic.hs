@@ -1,5 +1,6 @@
 {-# LANGUAGE
     FlexibleContexts
+  , TupleSections
   #-}
 
 module Linear.Simplex.Basic where
@@ -58,6 +59,19 @@ simplex f cs Max =
           then Nothing -- negative ratio
           else Just ratio
       | otherwise = Nothing -- undefined ratio
+
+    -- Finds next pivot row based on ratios of each row - note, row list should be non-empty
+    nextRow :: [IneqSlack] -> Int -> Maybe Int
+    nextRow xs col = fst <$> go 0 Nothing xs
+      where
+        -- manually recurse down tableau, with accumulator
+        go :: Int -> Maybe (Int, Double) -> [IneqSlack] -> Maybe (Int, Double)
+        go _ _ [] = error "Non-empty tableau supplied to `nextRow`."
+        go idx Nothing [x] = (idx,) <$> coeffRatio x col
+        go idx (Just (aidx, acc)) (x:xs) = case coeffRatio x col of
+          Nothing -> Just (aidx, acc)
+          Just acc' | acc' > acc -> go (idx+1) (Just (idx, acc')) xs
+                    | otherwise  -> go (idx+1) (Just (aidx, acc)) xs
 
     -- Extracts resulting data from tableau, excluding junk data
     getSubst :: [IneqSlack] -> [(LinVar, Double)]
