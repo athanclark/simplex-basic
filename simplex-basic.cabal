@@ -19,6 +19,7 @@ Library
                       , mtl
                       , transformers
                       , bifunctors
+                      , QuickCheck
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -28,9 +29,13 @@ Test-Suite spec
   Ghc-Options:          -Wall
   Main-Is:              Spec.hs
   Build-Depends:        base
+                      , linear-grammar >= 0.0.1
                       , hspec
                       , QuickCheck
                       , quickcheck-instances
+                      , mtl
+                      , transformers
+                      , bifunctors
 
 Source-Repository head
   Type:                 git

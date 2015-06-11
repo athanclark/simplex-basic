@@ -9,9 +9,10 @@ import Linear.Grammar
 import Data.List
 import Data.Maybe
 import Data.Bifunctor
-
 import Control.Monad
 import Control.Monad.State
+
+import Test.QuickCheck
 
 
 data Optimize = Max | Min
@@ -93,12 +94,11 @@ pivot (row,col) objective constrs =
 
 -- | "Flattens" a row for further processing.
 flatten :: IneqSlack -> Int -> IneqSlack
-flatten (IneqSlack (EquStd xs xc) ys) n =
-  let
-    coeffRecip = recip $ varCoeff $ xs !! n
-    mapRecip = map $ mapCoeff (coeffRecip *)
+flatten (IneqSlack x ys) n =
+  let coeffRecip = recip $ varCoeff $ getStdVars x !! n
+      mapRecip = map $ mapCoeff (coeffRecip *)
   in
-  IneqSlack (EquStd (mapRecip xs) $ xc * coeffRecip) $ mapRecip ys
+  IneqSlack (mapStdVars mapRecip $ mapStdConst (coeffRecip *) x) $ mapRecip ys
 
 -- | Takes the focal row, the row to affect, and the column in question to facilitate
 -- the sum-oriented part of the pivot.
@@ -171,6 +171,9 @@ data IneqSlack = IneqSlack
   { slackIneq :: IneqStdForm
   , slackVars :: [LinVar]
   } deriving (Show, Eq)
+
+instance Arbitrary IneqSlack where
+  arbitrary = liftM2 IneqSlack arbitrary arbitrary
 
 -- | Also translates @Ax >= Q@ to @-Ax <= -Q@. Ie; result will __exclude__ @GteStd@.
 makeSlackVars :: MonadState Integer m => IneqStdForm -> m IneqSlack
