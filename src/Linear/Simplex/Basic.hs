@@ -1,19 +1,18 @@
 {-# LANGUAGE
     FlexibleContexts
   , TupleSections
+  , MultiWayIf
   #-}
 
 module Linear.Simplex.Basic where
 
+import Linear.Simplex.Basic.Types
 import Linear.Grammar
+
 import Data.List
 import Data.Maybe
-import Data.Monoid
 import Data.Bifunctor
-import Control.Monad
 import Control.Monad.State
-
-import Test.QuickCheck
 
 
 data Optimize = Max | Min
@@ -82,15 +81,13 @@ coeffRatio x col =
   let xs = getStdVars $ slackIneq x
       xc = getStdConst $ slackIneq x
   in
-  if col < length xs
-  then if varCoeff (xs !! col) /= 0
-       then
-          let ratio = varCoeff (xs !! col) / xc in
-          if ratio < 0
-          then Nothing -- negative ratio
-          else Just ratio
-       else Nothing -- undefined ratio
-  else error "`coeffRatio` called with a column index larger than the length of variables."
+  if | col >= length xs -> error "`coeffRatio` called with a column index larger than the length of variables."
+     | varCoeff (xs !! col) /= 0 ->
+        let ratio = varCoeff (xs !! col) / xc in
+        if ratio < 0
+        then Nothing -- negative ratio
+        else Just ratio
+     | otherwise -> Nothing -- undefined ratio
 
 -- | flattens targeted row to form the identity at it's column coefficient, then
 -- reduces each non-zero row at this column, via a multiple of this flattened row.
@@ -107,10 +104,16 @@ pivot (row,col) objective constrs =
 -- | "Flattens" a row for further processing.
 flatten :: IneqSlack -> Int -> IneqSlack
 flatten (IneqSlack x ys) n =
-  let coeffRecip = recip $ varCoeff $ getStdVars x !! n
-      mapRecip = map $ mapCoeff (coeffRecip *)
+  let invertedCoeff = recip $ varCoeff $ getStdVars x !! n
+      mapRecip = map $ mapCoeff (invertedCoeff *)
+      newStdIneq = mapStdVars mapRecip $ mapStdConst (invertedCoeff *) x
+      newStdIneq' = mapStdVars (\xs -> replaceNth n (LinVar (varName (xs !! n)) 1) xs) newStdIneq
   in
-  IneqSlack (mapStdVars mapRecip $ mapStdConst (coeffRecip *) x) $ mapRecip ys
+  IneqSlack newStdIneq' $ mapRecip ys
+  where
+    replaceNth n newVal (x:xs)
+      | n == 0 = newVal:xs
+      | otherwise = x:replaceNth (n-1) newVal xs
 
 -- | Takes the focal row, the row to affect, and the column in question to facilitate
 -- the sum-oriented part of the pivot.
@@ -176,21 +179,6 @@ getSubst xs =
             else zip (fst $ unzip vars) newvarsvals
           , solutions ++ [getStdConst x]
           )
-
-
--- | Standard-form inequality populated with arbitrary slack variables.
-data IneqSlack = IneqSlack
-  { slackIneq :: IneqStdForm
-  , slackVars :: [LinVar]
-  } deriving (Show, Eq)
-
--- TODO: Find unique arbitrary instance for lists of strings
-instance Arbitrary IneqSlack where
-  arbitrary = liftM2 IneqSlack arbitrary (arbitrary `suchThat` isUniquelyNamed)
-              `suchThat` slackNamesAreDisjoint
-    where
-      isUniquelyNamed x = let x' = map varName x in nub x' == x'
-      slackNamesAreDisjoint x = null $ slackVars x `intersect` getStdVars (slackIneq x)
 
 -- | Also translates @Ax >= Q@ to @-Ax <= -Q@. Ie; result will __exclude__ @GteStd@.
 makeSlackVars :: MonadState Integer m => IneqStdForm -> m IneqSlack

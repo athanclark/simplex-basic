@@ -1,6 +1,7 @@
 module Linear.Simplex.BasicSpec (main, spec) where
 
 import Linear.Simplex.Basic
+import Linear.Simplex.Basic.Types
 import Linear.Grammar
 
 import Data.Maybe
@@ -24,9 +25,14 @@ spec = do
   describe "`diffZip`" $
     it "should be all 0 when ran on self" $
       property prop_diffZip_Zero
-  describe "`flatten`" $
+  describe "`flatten`" $ do
     it "should have 1 at its oriented column in it's result" $
       property prop_flatten_One
+    it "should be idempotent" $
+      property prop_flatten_Idempotent
+  describe "`compensate`" $ do
+    it "should be idempotent" $
+      property prop_compensate_Idempotent
   describe "`nextRow`" $
     it "should have the smallest ratio" $
       property prop_nextRow_MinRatio
@@ -60,7 +66,19 @@ prop_flatten_One :: IneqSlack -> Int -> Property
 prop_flatten_One x n =
   n >= 0 && n < length (getStdVars $ slackIneq x) ==>
     let r = varCoeff (getStdVars (slackIneq $ flatten x n) !! n) in
-    r > 0.9999 && r < 1.0001
+    r == 1
+
+prop_flatten_Idempotent :: IneqSlack -> Int -> Property
+prop_flatten_Idempotent x n =
+  n >= 0 && n < length (getStdVars $ slackIneq x) ==>
+    flatten (flatten x n) n == flatten x n
+
+prop_compensate_Idempotent :: IneqSlack -> IneqSlack -> Int -> Property
+prop_compensate_Idempotent focal target n =
+  let [focal',target'] = populate [focal,target] in
+  n >= 0 && n < length (getStdVars $ slackIneq focal') ==>
+    eqIneqSlack (compensate focal' (compensate focal' target' n) n)
+                (compensate focal' target' n)
 
 prop_nextRow_MinRatio :: [IneqSlack] -> Int -> Property
 prop_nextRow_MinRatio xs n =
@@ -77,4 +95,4 @@ prop_nextRow_MinRatio xs n =
         else error "what"
 
 allTheSame :: (Eq a) => [a] -> Bool
-allTheSame xs = and $ map (== head xs) (tail xs)
+allTheSame xs = all (== head xs) (tail xs)
