@@ -15,7 +15,7 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Linear.Simplex.Basic
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar >= 0.0.1
+                      , linear-grammar >= 0.0.1.1
                       , mtl
                       , transformers
                       , bifunctors
@@ -29,7 +29,7 @@ Test-Suite spec
   Ghc-Options:          -Wall
   Main-Is:              Spec.hs
   Build-Depends:        base
-                      , linear-grammar >= 0.0.1
+                      , linear-grammar >= 0.0.1.1
                       , hspec
                       , QuickCheck
                       , quickcheck-instances
