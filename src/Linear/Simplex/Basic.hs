@@ -186,7 +186,11 @@ data IneqSlack = IneqSlack
 
 -- TODO: Find unique arbitrary instance for lists of strings
 instance Arbitrary IneqSlack where
-  arbitrary = liftM2 IneqSlack arbitrary arbitrary
+  arbitrary = liftM2 IneqSlack arbitrary (arbitrary `suchThat` isUniquelyNamed)
+              `suchThat` slackNamesAreDisjoint
+    where
+      isUniquelyNamed x = let x' = map varName x in nub x' == x'
+      slackNamesAreDisjoint x = null $ slackVars x `intersect` getStdVars (slackIneq x)
 
 -- | Also translates @Ax >= Q@ to @-Ax <= -Q@. Ie; result will __exclude__ @GteStd@.
 makeSlackVars :: MonadState Integer m => IneqStdForm -> m IneqSlack

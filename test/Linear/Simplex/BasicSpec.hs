@@ -41,7 +41,7 @@ prop_populate_Uniform x =
                       + length (slackVars z)) $ populate x
     in
     traceShow x' $
-    minimum x' == maximum x' -- TODO: Need actual mass-equality
+    allTheSame x'
 
 prop_diffZip_Zero :: IneqSlack -> Property
 prop_diffZip_Zero x =
@@ -75,3 +75,6 @@ prop_nextRow_MinRatio xs n =
         if length xs' > r
         then minimum ratios == ratio
         else error "what"
+
+allTheSame :: (Eq a) => [a] -> Bool
+allTheSame xs = and $ map (== head xs) (tail xs)
