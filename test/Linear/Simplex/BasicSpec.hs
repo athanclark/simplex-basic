@@ -8,15 +8,19 @@ import Test.Hspec
 import Test.QuickCheck
 import Test.QuickCheck.Instances
 
+import Debug.Trace
+
 
 main :: IO ()
 main = hspec spec
 
 spec :: Spec
 spec = do
-  describe "`populate`" $
+  describe "`populate`" $ do
     it "should be idempotent" $
       property prop_populate_Idempotent
+    it "should have a uniform result" $
+      property prop_populate_Uniform
   describe "`diffZip`" $
     it "should be all 0 when ran on self" $
       property prop_diffZip_Zero
@@ -29,6 +33,15 @@ spec = do
 
 prop_populate_Idempotent :: [IneqSlack] -> Bool
 prop_populate_Idempotent x = populate x == populate (populate x)
+
+prop_populate_Uniform :: [IneqSlack] -> Property
+prop_populate_Uniform x =
+  length x > 0 ==>
+    let x' = map (\z -> length (getStdVars $ slackIneq z)
+                      + length (slackVars z)) $ populate x
+    in
+    traceShow x' $
+    minimum x' == maximum x' -- TODO: Need actual mass-equality
 
 prop_diffZip_Zero :: IneqSlack -> Property
 prop_diffZip_Zero x =
@@ -59,4 +72,6 @@ prop_nextRow_MinRatio xs n =
         let ratios = mapMaybe (`coeffRatio` n) xs'
             ratio  = fromJust $ coeffRatio (xs' !! r) n
         in
-        minimum ratios == ratio
+        if length xs' > r
+        then minimum ratios == ratio
+        else error "what"

@@ -75,19 +75,22 @@ nextRow xs col = if null xs
         go n (fx:xs) = ((n,) <$> fx):go (n+1) xs
 
 
--- | Computes coefficient ratio to constant, based on a column index
+-- | Computes coefficient ratio to constant, based on a column index. Warning:
+-- @Int@ parameter must be less than the length of the primal variables.
 coeffRatio :: IneqSlack -> Int -> Maybe Double
-coeffRatio x n =
+coeffRatio x col =
   let xs = getStdVars $ slackIneq x
       xc = getStdConst $ slackIneq x
   in
-  if varCoeff (xs !! n) /= 0
-  then
-      let ratio = varCoeff (xs !! n) / xc in
-      if ratio < 0
-      then Nothing -- negative ratio
-      else Just ratio
-  else Nothing -- undefined ratio
+  if col < length xs
+  then if varCoeff (xs !! col) /= 0
+       then
+          let ratio = varCoeff (xs !! col) / xc in
+          if ratio < 0
+          then Nothing -- negative ratio
+          else Just ratio
+       else Nothing -- undefined ratio
+  else error "`coeffRatio` called with a column index larger than the length of variables."
 
 -- | flattens targeted row to form the identity at it's column coefficient, then
 -- reduces each non-zero row at this column, via a multiple of this flattened row.
@@ -181,6 +184,7 @@ data IneqSlack = IneqSlack
   , slackVars :: [LinVar]
   } deriving (Show, Eq)
 
+-- TODO: Find unique arbitrary instance for lists of strings
 instance Arbitrary IneqSlack where
   arbitrary = liftM2 IneqSlack arbitrary arbitrary
 
@@ -199,27 +203,22 @@ makeSlackVars (GteStd xs xc) = -- invert equation to <= form
 populate :: [IneqSlack] -> [IneqSlack]
 populate xs =
   let
-    exauhstive :: ([[String]], [[String]])
-    exauhstive = unzip $ map linVarNames xs
-
     allnames :: ([String], [String])
-    allnames = bimap (nub . concat) (nub . concat) exauhstive
+    allnames = bimap (nub . concat) (nub . concat) $ unzip $ map varNames xs
   in
   map (fill allnames) xs
   where
     -- left is user-level vars, right are slack vars
-    linVarNames :: IneqSlack -> ([String], [String])
-    linVarNames x = ( map varName $ getStdVars $ slackIneq x
-                    , map varName $ slackVars x
-                    )
+    varNames :: IneqSlack -> ([String], [String])
+    varNames x = ( map varName $ getStdVars $ slackIneq x
+                 , map varName $ slackVars x
+                 )
 
     -- populates missing variables with @0@ as coefficients, and sorts the result.
     fill :: ([String], [String]) -> IneqSlack -> IneqSlack
-    fill (rs,ss) x =
-      let
-        (rs',ss') = linVarNames x
-      in
-      case (rs \\ rs', ss \\ ss') of
+    fill (allns,allss) x =
+      let (oldns,oldss) = varNames x in
+      case (allns \\ oldns, allss \\ oldss) of
         (names,slacks) ->
           x { slackIneq = -- instantiate empty user-level vars
                           mapStdVars (\xs -> sort $ xs ++ map (flip LinVar 0) names) $
