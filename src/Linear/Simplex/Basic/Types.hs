@@ -7,6 +7,12 @@ import Data.List
 import Control.Monad
 
 
+data Optimize = Max | Min
+  deriving (Show, Eq)
+
+type Objective = IneqSlack
+
+
 -- | Standard-form inequality populated with arbitrary slack variables.
 data IneqSlack = IneqSlack
   { slackIneq :: IneqStdForm

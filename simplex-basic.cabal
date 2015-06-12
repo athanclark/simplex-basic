@@ -33,7 +33,6 @@ Test-Suite spec
                       , linear-grammar >= 0.0.1.5
                       , hspec
                       , QuickCheck
-                      , quickcheck-instances
                       , mtl
                       , transformers
                       , bifunctors

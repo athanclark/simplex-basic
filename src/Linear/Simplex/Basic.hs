@@ -15,18 +15,14 @@ import Data.Bifunctor
 import Control.Monad.State
 
 
-data Optimize = Max | Min
-  deriving (Show, Eq)
-
-type Objective = IneqSlack
-
 -- | Takes an objective function, a set of constraints, and an operation mode,
 -- then returns a substitution.
 -- .
--- Objective function should be in the form of @Ax + By + Cz + P = 0@
+-- Objective function should be in the form of @Ax + By + Cz + P = 0@, where @P@ is the
+-- resule, and free in the constraint set.
 simplex :: IneqStdForm -> [IneqStdForm] -> Optimize -> [(String, Double)]
-simplex (LteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be literal."
-simplex (GteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be literal."
+simplex (LteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be ==."
+simplex (GteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be ==."
 simplex f cs Max =
   let
     -- objective function is not an inequality, so no slacks will be introduced.
@@ -110,10 +106,6 @@ flatten (IneqSlack x ys) n =
       newStdIneq' = mapStdVars (\xs -> replaceNth n (LinVar (varName (xs !! n)) 1) xs) newStdIneq
   in
   IneqSlack newStdIneq' $ mapRecip ys
-  where
-    replaceNth n newVal (x:xs)
-      | n == 0 = newVal:xs
-      | otherwise = x:replaceNth (n-1) newVal xs
 
 -- | Takes the focal row, the row to affect, and the column in question to facilitate
 -- the sum-oriented part of the pivot.
@@ -138,6 +130,7 @@ diffZip (IneqSlack (EquStd xs xc) xvs) (IneqSlack (EquStd ys yc) yvs) =
   where
     zipDiff = zipWith (\x y -> LinVar (varName x) $ varCoeff x - varCoeff y)
 diffZip _ _ = error "`diffZip` called with non `EquStd` input."
+
 
 -- | Extracts resulting data from tableau, excluding junk data
 getSubst :: [IneqSlack] -> [(String, Double)]
@@ -218,3 +211,8 @@ populate xs =
             , slackVars = -- instantiate empty slack vars
                           sort $ slackVars x ++ map (flip LinVar 0) slacks
             }
+
+replaceNth :: Int -> a -> [a] -> [a]
+replaceNth n newVal (x:xs)
+  | n == 0 = newVal:xs
+  | otherwise = x:replaceNth (n-1) newVal xs

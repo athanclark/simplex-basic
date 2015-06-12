@@ -1,15 +1,13 @@
 module Linear.Simplex.BasicSpec (main, spec) where
 
+import Linear.Simplex.BasicSpec.Types
 import Linear.Simplex.Basic
 import Linear.Simplex.Basic.Types
 import Linear.Grammar
 
-import Data.Maybe
 import Test.Hspec
 import Test.QuickCheck
-import Test.QuickCheck.Instances
-
-import Debug.Trace
+import Data.Maybe
 
 
 main :: IO ()
@@ -31,11 +29,12 @@ spec = do
     it "should be idempotent" $
       property prop_flatten_Idempotent
   describe "`compensate`" $ do
-    it "should be idempotent" $
-      property prop_compensate_Idempotent
+    it "should have 0 at its oriented column in it's result" $
+      property prop_compensate_Zero
   describe "`nextRow`" $
     it "should have the smallest ratio" $
       property prop_nextRow_MinRatio
+
 
 prop_populate_Idempotent :: [IneqSlack] -> Bool
 prop_populate_Idempotent x = populate x == populate (populate x)
@@ -46,21 +45,17 @@ prop_populate_Uniform x =
     let x' = map (\z -> length (getStdVars $ slackIneq z)
                       + length (slackVars z)) $ populate x
     in
-    traceShow x' $
     allTheSame x'
 
-prop_diffZip_Zero :: IneqSlack -> Property
-prop_diffZip_Zero x =
-  let r  = diffZip x x
+prop_diffZip_Zero :: EquSlackQC -> Bool
+prop_diffZip_Zero x' =
+  let x = fromEquSlack x'
+      r  = diffZip x x
       ss = map varCoeff $ slackVars r
       c  = getStdConst $ slackIneq r
       vs = map varCoeff $ getStdVars $ slackIneq r
   in
-  isEqStd x ==> all (== 0) (ss ++ vs ++ [c])
-  where
-    isEqStd :: IneqSlack -> Bool
-    isEqStd (IneqSlack (EquStd _ _) _) = True
-    isEqStd _ = False
+  all (== 0) (ss ++ vs ++ [c])
 
 prop_flatten_One :: IneqSlack -> Int -> Property
 prop_flatten_One x n =
@@ -73,12 +68,16 @@ prop_flatten_Idempotent x n =
   n >= 0 && n < length (getStdVars $ slackIneq x) ==>
     flatten (flatten x n) n == flatten x n
 
-prop_compensate_Idempotent :: IneqSlack -> IneqSlack -> Int -> Property
-prop_compensate_Idempotent focal target n =
-  let [focal',target'] = populate [focal,target] in
-  n >= 0 && n < length (getStdVars $ slackIneq focal') ==>
-    eqIneqSlack (compensate focal' (compensate focal' target' n) n)
-                (compensate focal' target' n)
+prop_compensate_Zero :: EquSlackQC -> EquSlackQC -> Int -> Property
+prop_compensate_Zero nfocal ntarget n =
+  let focal = fromEquSlack nfocal
+      target = fromEquSlack ntarget
+      [focal',target'] = populate [focal,target]
+      focal'' = flatten focal' n
+  in
+  n >= 0 && n < (length (getStdVars $ slackIneq focal) `max` length (getStdVars $ slackIneq target)) ==>
+    varCoeff (getStdVars (slackIneq (compensate focal'' target' n)) !! n) == 0
+
 
 prop_nextRow_MinRatio :: [IneqSlack] -> Int -> Property
 prop_nextRow_MinRatio xs n =
@@ -90,9 +89,12 @@ prop_nextRow_MinRatio xs n =
         let ratios = mapMaybe (`coeffRatio` n) xs'
             ratio  = fromJust $ coeffRatio (xs' !! r) n
         in
-        if length xs' > r
-        then minimum ratios == ratio
-        else error "what"
+        minimum ratios == ratio
+
+
+isEquStd :: IneqSlack -> Bool
+isEquStd (IneqSlack (EquStd _ _) _) = True
+isEquStd _ = False
 
 allTheSame :: (Eq a) => [a] -> Bool
 allTheSame xs = all (== head xs) (tail xs)
