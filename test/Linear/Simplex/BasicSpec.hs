@@ -40,20 +40,38 @@ spec = do
   describe "`nextColumn`" $
     it "should have the smallest value" $
       property prop_nextColumn_MinValue
-  describe "unit tests" $
-    it "should pass Lesson 1, Example 1" $
+  describe "unit tests" $ do
+    it "should pass Finite Mathematics Lesson 4, Example 1" $
+      let f1 = EVar "x" .+. EVar "y" .+. EVar "z" .<=. ELit 600
+          f2 = EVar "x" .+. (3 :: Double) .*. EVar "y" .<=. ELit 600
+          f3 = (2 :: Double) .*. EVar "x" .+. EVar "z" .<=. ELit 900
+          obj = EVar "M" .==. (60 :: Double) .*. EVar "x" .+. (90 :: Double) .*. EVar "y"
+                .+. (300 :: Double) .*. EVar "z"
+          test = M.fromList (simplex (standardForm obj) (standardForm <$> [f1,f2,f3]) Max)
+      in
+      test `shouldBe` M.fromList [("M",180000),("x",0),("y",0),("z",600),("s0",0),("s1",600),("s2",300)]
+    it "should pass Finite Mathematics Lesson 4, Example 2" $
       let f1 = EVar "a" .+. EVar "b" .+. EVar "c" .<=. ELit 100
           f2 = (5 :: Double) .*. EVar "a" .+. (4 :: Double) .*. EVar "b"
                .+. (4 :: Double) .*. EVar "c" .<=. ELit 480
           f3 = (40 :: Double) .*. EVar "a" .+. (20 :: Double) .*. EVar "b"
                .+. (30 :: Double) .*. EVar "c" .<=. ELit 3200
-          obj = (70 :: Double) .*. EVar "a" .+. (210 :: Double) .*. EVar "b"
-                .+. (140 :: Double) .*. EVar "c" .+. EVar "M" .==. ELit 0
-          solution = [("b", 100), ("M", 21000)]
+          obj = EVar "M" .==. (70 :: Double) .*. EVar "a" .+. (210 :: Double) .*. EVar "b"
+                .+. (140 :: Double) .*. EVar "c"
           test = M.fromList (simplex (standardForm obj) (standardForm <$> [f1,f2,f3]) Max)
       in
-      traceShow test $
-      test `shouldBe` M.fromList []
+      test `shouldBe` M.fromList [("M",21000),("a",0),("b",100),("c",0),("s0",0),("s1",80),("s2",1200)]
+    it "should pass Example of Simplex Procedure" $
+      let f1 = (2 :: Double) .*. EVar "x1" .+. EVar "x2" .+. EVar "x3" .<=. ELit 14
+          f2 = (4 :: Double) .*. EVar "x1" .+. (2 :: Double) .*. EVar "x2"
+               .+. (3 :: Double) .*. EVar "x3" .<=. ELit 28
+          f3 = (2 :: Double) .*. EVar "x1" .+. (5 :: Double) .*. EVar "x2"
+               .+. (5 :: Double) .*. EVar "x3" .<=. ELit 30
+          obj = EVar "Z" .==. EVar "x1" .+. (2 :: Double) .*. EVar "x2"
+                .+. (-1 :: Double) .*. EVar "x3"
+          test = M.fromList (simplex (standardForm obj) (standardForm <$> [f1,f2,f3]) Max)
+      in
+      test `shouldBe` M.fromList [("Z",13),("x1",5),("x2",4),("x3",0),("s0",0),("s1",0),("s2",0)]
 
 
 
@@ -113,12 +131,13 @@ prop_nextRow_MinRatio xs n =
         minimum ratios == ratio
 
 
-prop_nextColumn_MinValue :: EquSlackQC -> Bool
+prop_nextColumn_MinValue :: EquSlackQC -> Property
 prop_nextColumn_MinValue x' =
   let x = fromEquSlack x'
       vars = varCoeff <$> getStdVars (slackIneq x)
   in
-  vars !! fromJust (nextColumn x) == minimum vars
+  length (filter (< 0) vars) > 0 ==>
+    vars !! fromJust (nextColumn x) == minimum vars
 
 
 allTheSame :: (Eq a) => [a] -> Bool

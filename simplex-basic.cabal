@@ -15,7 +15,6 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Linear.Simplex.Basic
                         Linear.Simplex.Basic.Types
-                        Tests
   Build-Depends:        base >= 4.6 && < 5
                       , linear-grammar >= 0.0.1.6
                       , mtl
