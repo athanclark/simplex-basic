@@ -1,4 +1,7 @@
-# basic-simplex
+basic-simplex
+=============
+
+[![Build Status](https://travis-ci.org/athanclark/simplex-basic.svg?branch=master)](https://travis-ci.org/athanclark/simplex-basic)
 
 A trivial implementation of primal simplex.
 
