@@ -8,6 +8,9 @@ import Linear.Grammar
 import Test.Hspec
 import Test.QuickCheck
 import Data.Maybe
+import qualified Data.Map as M
+
+import Debug.Trace
 
 
 main :: IO ()
@@ -28,12 +31,27 @@ spec = do
       property prop_flatten_One
     it "should be idempotent" $
       property prop_flatten_Idempotent
-  describe "`compensate`" $ do
+  describe "`compensate`" $
     it "should have 0 at its oriented column in it's result" $
       property prop_compensate_Zero
   describe "`nextRow`" $
     it "should have the smallest ratio" $
       property prop_nextRow_MinRatio
+  describe "unit tests" $
+    it "should pass Lesson 1, Example 1" $
+      let f1 = EVar "a" .+. EVar "b" .+. EVar "c" .<=. ELit 100
+          f2 = (5 :: Double) .*. EVar "a" .+. (4 :: Double) .*. EVar "b"
+               .+. (4 :: Double) .*. EVar "c" .<=. ELit 480
+          f3 = (40 :: Double) .*. EVar "a" .+. (20 :: Double) .*. EVar "b"
+               .+. (30 :: Double) .*. EVar "c" .<=. ELit 3200
+          obj = (70 :: Double) .*. EVar "a" .+. (210 :: Double) .*. EVar "b"
+                .+. (140 :: Double) .*. EVar "c" .+. EVar "M" .==. ELit 0
+          solution = [("b", 100), ("M", 21000)]
+          test = M.fromList (simplex (standardForm obj) (standardForm <$> [f1,f2,f3]) Max)
+      in
+      traceShow test $
+      test `shouldBe` M.fromList []
+
 
 
 prop_populate_Idempotent :: [IneqSlack] -> Bool
@@ -91,10 +109,6 @@ prop_nextRow_MinRatio xs n =
         in
         minimum ratios == ratio
 
-
-isEquStd :: IneqSlack -> Bool
-isEquStd (IneqSlack (EquStd _ _) _) = True
-isEquStd _ = False
 
 allTheSame :: (Eq a) => [a] -> Bool
 allTheSame xs = all (== head xs) (tail xs)

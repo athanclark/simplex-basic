@@ -15,12 +15,14 @@ Library
   GHC-Options:          -Wall
   Exposed-Modules:      Linear.Simplex.Basic
                         Linear.Simplex.Basic.Types
+                        Tests
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar >= 0.0.1.5
+                      , linear-grammar >= 0.0.1.6
                       , mtl
                       , transformers
                       , bifunctors
                       , QuickCheck
+                      , deepseq
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -30,12 +32,14 @@ Test-Suite spec
   Ghc-Options:          -Wall
   Main-Is:              Spec.hs
   Build-Depends:        base
-                      , linear-grammar >= 0.0.1.5
+                      , linear-grammar >= 0.0.1.6
                       , hspec
                       , QuickCheck
                       , mtl
                       , transformers
                       , bifunctors
+                      , containers
+                      , deepseq
 
 Source-Repository head
   Type:                 git

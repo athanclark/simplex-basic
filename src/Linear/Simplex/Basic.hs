@@ -14,6 +14,10 @@ import Data.Maybe
 import Data.Bifunctor
 import Control.Monad.State
 
+import Debug.Trace
+import System.IO.Unsafe
+import Control.DeepSeq
+
 
 -- | Takes an objective function, a set of constraints, and an operation mode,
 -- then returns a substitution.
@@ -28,7 +32,7 @@ simplex f cs Max =
     -- objective function is not an inequality, so no slacks will be introduced.
     tableau = populate $ evalState (mapM makeSlackVars (f:cs)) 0
   in
-  getSubst $ run tableau
+  getSubst $ run $ deepseq (unsafePerformIO (putStrLn $ "tableau: " ++ show tableau)) tableau
   where
     -- list of inequalities includes objective function.
     run :: [IneqSlack] -> [IneqSlack]
@@ -38,7 +42,8 @@ simplex f cs Max =
       in
       if isNothing mCol || isNothing mRow
       then objective:constrs -- solved
-      else run $ pivot (fromJust mCol, fromJust mRow) objective constrs
+      else run $ let next = pivot (fromJust mCol, fromJust mRow) objective constrs in
+                 deepseq (unsafePerformIO (print next >> print "der" >> print "err")) next
 
 -- | finds next column index from objective function
 nextColumn :: IneqSlack -> Maybe Int
@@ -94,8 +99,9 @@ pivot (row,col) objective constrs =
     focalRow = flatten (constrs !! row) col
     initConstrs = map (\x -> compensate focalRow x col) $ take row constrs
     tailConstrs = map (\x -> compensate focalRow x col) $ drop (row+1) constrs
+    objective' = compensate focalRow objective col
   in
-  objective:(initConstrs ++ (focalRow:tailConstrs))
+  objective':(initConstrs ++ (focalRow:tailConstrs))
 
 -- | "Flattens" a row for further processing.
 flatten :: IneqSlack -> Int -> IneqSlack
@@ -138,38 +144,41 @@ getSubst xs =
   let (vars, solutions) = transposeTableau xs
       solutionIdxs = getSolutionIdxs vars
   in
-  map (`getSolutionIdx` solutions) solutionIdxs
+  map (`getSolution` solutions) solutionIdxs
   where
-    getSolutionIdx :: (String, Maybe Int) -> [Double] -> (String, Double)
-    getSolutionIdx (n, Nothing) _ = (n, 0)
-    getSolutionIdx (n, Just i) xs = (n, xs !! i)
+    -- Takes the list of constants as a paramter
+    getSolution :: (String, Maybe Int) -> [Double] -> (String, Double)
+    getSolution (n, Nothing) _ = (n, 0)
+    getSolution (n, Just i) ss = (n, ss !! i) -- dependent on rightward bias
 
     getSolutionIdxs :: [(String,[Double])] -> [(String, Maybe Int)]
     getSolutionIdxs [] = []
-    getSolutionIdxs ((v,ds):xs) = (v,findIdx ds):getSolutionIdxs xs
+    getSolutionIdxs ((v,ds):vs) = (v,findIdx ds):getSolutionIdxs vs
       where
         findIdx :: [Double] -> Maybe Int
-        findIdx ds | maximum ds == 1
+        findIdx ds | maximum ds == 1 -- the index of the only `1` element
                   && length (filter (== 1) ds) == 1 = elemIndex 1 ds
                    | otherwise = Nothing
 
     transposeTableau :: [IneqSlack] -> ([(String, [Double])], [Double])
     transposeTableau = foldl go ([],[])
       where
-        go :: ([(String,[Double])], [Double]) -> IneqSlack -> ([(String,[Double])], [Double])
+        go :: ([(String, [Double])], [Double])
+           -> IneqSlack
+           -> ([(String, [Double])], [Double])
         go (vars,solutions) (IneqSlack x ys) =
           let
-            newvars = getStdVars x ++ ys
-            newvarsmap :: [(String,[Double])]
-            newvarsmap = map (\z -> (varName z,[varCoeff z])) newvars
-            newvarsvals :: [[Double]]
-            newvarsvals = if null vars
-                          then snd $ unzip newvarsmap
-                          else zipWith (++) (snd $ unzip vars) (snd $ unzip newvarsmap)
+            newvarsmap :: [(String, [Double])]
+            newvarsmap = map (\z -> (varName z,[varCoeff z])) $ getStdVars x ++ ys
+            -- result after combining acc & current
+            varsvals :: [[Double]]
+            varsvals = if null vars
+                       then snd $ unzip newvarsmap -- pointwise combine acc vars & current vars
+                       else zipWith (++) (snd $ unzip vars) (snd $ unzip newvarsmap)
           in
           ( if null vars
             then newvarsmap
-            else zip (fst $ unzip vars) newvarsvals
+            else zip (fst $ unzip vars) varsvals
           , solutions ++ [getStdConst x]
           )
 
@@ -211,6 +220,7 @@ populate xs =
             , slackVars = -- instantiate empty slack vars
                           sort $ slackVars x ++ map (flip LinVar 0) slacks
             }
+
 
 replaceNth :: Int -> a -> [a] -> [a]
 replaceNth n newVal (x:xs)
