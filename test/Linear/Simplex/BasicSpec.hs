@@ -37,6 +37,9 @@ spec = do
   describe "`nextRow`" $
     it "should have the smallest ratio" $
       property prop_nextRow_MinRatio
+  describe "`nextColumn`" $
+    it "should have the smallest value" $
+      property prop_nextColumn_MinValue
   describe "unit tests" $
     it "should pass Lesson 1, Example 1" $
       let f1 = EVar "a" .+. EVar "b" .+. EVar "c" .<=. ELit 100
@@ -108,6 +111,14 @@ prop_nextRow_MinRatio xs n =
             ratio  = fromJust $ coeffRatio (xs' !! r) n
         in
         minimum ratios == ratio
+
+
+prop_nextColumn_MinValue :: EquSlackQC -> Bool
+prop_nextColumn_MinValue x' =
+  let x = fromEquSlack x'
+      vars = varCoeff <$> getStdVars (slackIneq x)
+  in
+  vars !! fromJust (nextColumn x) == minimum vars
 
 
 allTheSame :: (Eq a) => [a] -> Bool

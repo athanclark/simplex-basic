@@ -38,7 +38,7 @@ simplex f cs Max =
     run :: [IneqSlack] -> [IneqSlack]
     run (objective:constrs) =
       let mCol = nextColumn objective
-          mRow = mCol >>= nextRow constrs
+          mRow = nextRow constrs =<< mCol
       in
       if isNothing mCol || isNothing mRow
       then objective:constrs -- solved
@@ -57,7 +57,7 @@ nextColumn _ = error "`nextColumn` called on an inequality."
 -- Note: row list should be non-empty
 nextRow :: [IneqSlack] -> Int -> Maybe Int
 nextRow xs col = if null xs
-  then error "Non-empty tableau supplied to `nextRow`."
+  then error "Empty tableau supplied to `nextRow`."
   else minIdxMaybe $ map (`coeffRatio` col) xs
   where
     minIdxMaybe :: Ord a => [Maybe a] -> Maybe Int
@@ -84,7 +84,7 @@ coeffRatio x col =
   in
   if | col >= length xs -> error "`coeffRatio` called with a column index larger than the length of variables."
      | varCoeff (xs !! col) /= 0 ->
-        let ratio = varCoeff (xs !! col) / xc in
+        let ratio = xc / varCoeff (xs !! col) in
         if ratio < 0
         then Nothing -- negative ratio
         else Just ratio
