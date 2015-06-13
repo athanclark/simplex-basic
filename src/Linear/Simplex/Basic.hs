@@ -42,7 +42,7 @@ simplex f cs Max =
       in
       if isNothing mCol || isNothing mRow
       then objective:constrs -- solved
-      else run $ let next = pivot (fromJust mCol, fromJust mRow) objective constrs in
+      else run $ let next = pivot (fromJust mRow, fromJust mCol) objective constrs in
                  deepseq (unsafePerformIO (print next >> print "der" >> print "err")) next
 
 -- | finds next column index from objective function
@@ -96,12 +96,12 @@ coeffRatio x col =
 pivot :: (Int, Int) -> Objective -> [IneqSlack] -> [IneqSlack]
 pivot (row,col) objective constrs =
   let
-    focalRow = flatten (constrs !! row) col
-    initConstrs = map (\x -> compensate focalRow x col) $ take row constrs
-    tailConstrs = map (\x -> compensate focalRow x col) $ drop (row+1) constrs
-    objective' = compensate focalRow objective col
+    focal = flatten (constrs !! row) col
+    initConstrs = map (\x -> compensate focal x col) $ take row constrs
+    tailConstrs = map (\x -> compensate focal x col) $ drop (row+1) constrs
+    objective' = compensate focal objective col
   in
-  objective':(initConstrs ++ (focalRow:tailConstrs))
+  objective':(initConstrs ++ (focal:tailConstrs))
 
 -- | "Flattens" a row for further processing.
 flatten :: IneqSlack -> Int -> IneqSlack
@@ -125,7 +125,7 @@ compensate focal target col =
                      , slackVars = map (mapCoeff (coeff *)) $ slackVars focal
                      }
   in
-  diffZip target newFocal
+  target `diffZip` newFocal
 
 
 -- | Note: Must have identical occurrances of variables, and must be @EquStd@.

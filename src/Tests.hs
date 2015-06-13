@@ -7,6 +7,8 @@ import Linear.Simplex.Basic.Types
 import Data.Maybe
 import Control.Monad.State
 
+import Debug.Trace
+
 
 f1 = EVar "a" .+. EVar "b" .+. EVar "c" .<=. ELit 100
 f2 = (5 :: Double) .*. EVar "a" .+. (4 :: Double) .*. EVar "b" .+. (4 :: Double) .*. EVar "c" .<=. ELit 480
@@ -17,12 +19,11 @@ test = simplex (standardForm obj) (standardForm <$> [f1,f2,f3]) Max
 tableau = populate $ evalState (mapM (makeSlackVars . standardForm) [obj,f1,f2,f3]) 0
 
 
-
 runOnce :: [IneqSlack] -> [IneqSlack]
 runOnce (objective:constrs) =
   let mCol = nextColumn objective
-      mRow = mCol >>= nextRow constrs
+      mRow = nextRow constrs =<< mCol
   in
   if isNothing mCol || isNothing mRow
   then objective:constrs -- solved
-  else pivot (fromJust mCol, fromJust mRow) objective constrs
+  else pivot (fromJust mRow, fromJust mCol) objective constrs
