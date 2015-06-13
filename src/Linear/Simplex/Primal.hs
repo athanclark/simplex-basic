@@ -4,9 +4,9 @@
   , MultiWayIf
   #-}
 
-module Linear.Simplex.Basic where
+module Linear.Simplex.Primal where
 
-import Linear.Simplex.Basic.Types
+import Linear.Simplex.Primal.Types
 import Linear.Grammar
 
 import Data.List
@@ -21,10 +21,10 @@ import Control.Applicative
 -- .
 -- Objective function should be in the form of @Ax + By + Cz + P = 0@, where @P@ is the
 -- resule, and free in the constraint set.
-simplex :: IneqStdForm -> [IneqStdForm] -> Optimize -> [(String, Double)]
-simplex (LteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be ==."
-simplex (GteStd _ _) _ _ = error "Can't run simplex over an inequality - objective function must be ==."
-simplex f cs Max =
+simplexPrimal :: IneqStdForm -> [IneqStdForm] -> [(String, Rational)]
+simplexPrimal (LteStd _ _) _ = error "Can't run simplex over an inequality - objective function must be ==."
+simplexPrimal (GteStd _ _) _ = error "Can't run simplex over an inequality - objective function must be ==."
+simplexPrimal f cs =
   let
     -- objective function is not an inequality, so no slacks will be introduced.
     tableau = populate $ evalState (mapM makeSlackVars (f:cs)) 0
@@ -73,7 +73,7 @@ nextRow xs col = if null xs
 
 -- | Computes coefficient ratio to constant, based on a column index. Warning:
 -- @Int@ parameter must be less than the length of the primal variables.
-coeffRatio :: IneqSlack -> Int -> Maybe Double
+coeffRatio :: IneqSlack -> Int -> Maybe Rational
 coeffRatio x col =
   let xs = getStdVars $ slackIneq x
       xc = getStdConst $ slackIneq x
@@ -135,7 +135,7 @@ diffZip _ _ = error "`diffZip` called with non `EquStd` input."
 
 
 -- | Extracts resulting data from tableau, excluding junk data
-getSubst :: [IneqSlack] -> [(String, Double)]
+getSubst :: [IneqSlack] -> [(String, Rational)]
 getSubst xs =
   let (vars, solutions) = transposeTableau xs
       solutionIdxs = getSolutionIdxs vars
@@ -143,31 +143,31 @@ getSubst xs =
   map (`getSolution` solutions) solutionIdxs
   where
     -- Takes the list of constants as a paramter
-    getSolution :: (String, Maybe Int) -> [Double] -> (String, Double)
+    getSolution :: (String, Maybe Int) -> [Rational] -> (String, Rational)
     getSolution (n, Nothing) _ = (n, 0)
     getSolution (n, Just i) ss = (n, ss !! i) -- dependent on rightward bias
 
-    getSolutionIdxs :: [(String,[Double])] -> [(String, Maybe Int)]
+    getSolutionIdxs :: [(String, [Rational])] -> [(String, Maybe Int)]
     getSolutionIdxs [] = []
     getSolutionIdxs ((v,ds):vs) = (v,findIdx ds):getSolutionIdxs vs
       where
-        findIdx :: [Double] -> Maybe Int
+        findIdx :: [Rational] -> Maybe Int
         findIdx ds | maximum ds == 1 -- the index of the only `1` element
                   && length (filter (== 1) ds) == 1 = elemIndex 1 ds
                    | otherwise = Nothing
 
-    transposeTableau :: [IneqSlack] -> ([(String, [Double])], [Double])
+    transposeTableau :: [IneqSlack] -> ([(String, [Rational])], [Rational])
     transposeTableau = foldl go ([],[])
       where
-        go :: ([(String, [Double])], [Double])
+        go :: ([(String, [Rational])], [Rational])
            -> IneqSlack
-           -> ([(String, [Double])], [Double])
+           -> ([(String, [Rational])], [Rational])
         go (vars,solutions) (IneqSlack x ys) =
           let
-            newvarsmap :: [(String, [Double])]
+            newvarsmap :: [(String, [Rational])]
             newvarsmap = map (\z -> (varName z,[varCoeff z])) $ getStdVars x ++ ys
             -- result after combining acc & current
-            varsvals :: [[Double]]
+            varsvals :: [[Rational]]
             varsvals = if null vars
                        then snd $ unzip newvarsmap -- pointwise combine acc vars & current vars
                        else zipWith (++) (snd $ unzip vars) (snd $ unzip newvarsmap)

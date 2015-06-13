@@ -13,15 +13,14 @@ Library
   Default-Language:     Haskell2010
   HS-Source-Dirs:       src
   GHC-Options:          -Wall
-  Exposed-Modules:      Linear.Simplex.Basic
-                        Linear.Simplex.Basic.Types
+  Exposed-Modules:      Linear.Simplex.Primal
+                        Linear.Simplex.Primal.Types
   Build-Depends:        base >= 4.6 && < 5
-                      , linear-grammar >= 0.0.1.6
+                      , linear-grammar >= 0.0.2.1
                       , mtl
                       , transformers
                       , bifunctors
                       , QuickCheck
-                      , deepseq
 
 Test-Suite spec
   Type:                 exitcode-stdio-1.0
@@ -31,14 +30,13 @@ Test-Suite spec
   Ghc-Options:          -Wall
   Main-Is:              Spec.hs
   Build-Depends:        base
-                      , linear-grammar >= 0.0.1.6
+                      , linear-grammar >= 0.0.2.1
                       , hspec
                       , QuickCheck
                       , mtl
                       , transformers
                       , bifunctors
                       , containers
-                      , deepseq
 
 Source-Repository head
   Type:                 git
