@@ -13,10 +13,7 @@ import Data.List
 import Data.Maybe
 import Data.Bifunctor
 import Control.Monad.State
-
-import Debug.Trace
-import System.IO.Unsafe
-import Control.DeepSeq
+import Control.Applicative
 
 
 -- | Takes an objective function, a set of constraints, and an operation mode,
@@ -32,7 +29,7 @@ simplex f cs Max =
     -- objective function is not an inequality, so no slacks will be introduced.
     tableau = populate $ evalState (mapM makeSlackVars (f:cs)) 0
   in
-  getSubst $ run $ deepseq (unsafePerformIO (putStrLn $ "tableau: " ++ show tableau)) tableau
+  getSubst $ run tableau
   where
     -- list of inequalities includes objective function.
     run :: [IneqSlack] -> [IneqSlack]
@@ -42,8 +39,7 @@ simplex f cs Max =
       in
       if isNothing mCol || isNothing mRow
       then objective:constrs -- solved
-      else run $ let next = pivot (fromJust mRow, fromJust mCol) objective constrs in
-                 deepseq (unsafePerformIO (print next >> print "der" >> print "err")) next
+      else run $ pivot (fromJust mRow, fromJust mCol) objective constrs
 
 -- | finds next column index from objective function
 nextColumn :: IneqSlack -> Maybe Int
