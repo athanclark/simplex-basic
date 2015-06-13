@@ -9,8 +9,7 @@ import Test.Hspec
 import Test.QuickCheck
 import Data.Maybe
 import qualified Data.Map as M
-
-import Debug.Trace
+import Control.Applicative
 
 
 main :: IO ()
